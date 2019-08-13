@@ -36,6 +36,7 @@ public class MainActivity extends AppCompatActivity
     private static final String TAG = "simple-multiparty " + MainActivity.class.getSimpleName();
 
     private final int MAX_NUM_SUBSCRIBERS = 4;
+    private int sessionIdentifier = 0;
 
     private static final int RC_SETTINGS_SCREEN_PERM = 123;
     private static final int RC_VIDEO_APP_PERM = 124;
@@ -47,6 +48,7 @@ public class MainActivity extends AppCompatActivity
     private HashMap<Stream, Subscriber> mSubscriberStreams = new HashMap<Stream, Subscriber>();
 
     private RelativeLayout mPublisherViewContainer;
+    private boolean shouldSwap = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -64,6 +66,13 @@ public class MainActivity extends AppCompatActivity
                     return;
                 }
                 mPublisher.cycleCamera();
+            }
+        });
+
+        final Button swapSession = (Button) findViewById(R.id.swapSession);
+        swapSession.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                swapSession();
             }
         });
 
@@ -192,9 +201,9 @@ public class MainActivity extends AppCompatActivity
                 Manifest.permission.RECORD_AUDIO
         };
         if (EasyPermissions.hasPermissions(this, perms)) {
-            mSession = new Session.Builder(MainActivity.this, OpenTokConfig.API_KEY, OpenTokConfig.SESSION_ID).build();
+            mSession = new Session.Builder(MainActivity.this, OpenTokConfig.API_KEY, OpenTokConfig.SESSION_IDS.get(this.sessionIdentifier)).build();
             mSession.setSessionListener(this);
-            mSession.connect(OpenTokConfig.TOKEN);
+            mSession.connect(OpenTokConfig.TOKENS.get(this.sessionIdentifier));
         } else {
             EasyPermissions.requestPermissions(this, getString(R.string.rationale_video_app), RC_VIDEO_APP_PERM, perms);
         }
@@ -218,6 +227,11 @@ public class MainActivity extends AppCompatActivity
         Log.d(TAG, "onDisconnected: disconnected from session " + session.getSessionId());
 
         mSession = null;
+
+        if (shouldSwap) {
+            requestPermissions();
+            shouldSwap = false;
+        }
     }
 
     @Override
@@ -305,6 +319,12 @@ public class MainActivity extends AppCompatActivity
         finish();
     }
 
+    private void swapSession() {
+        disconnectSession();
+        this.sessionIdentifier ^= 1;
+        this.shouldSwap = true;
+    }
+
     private void disconnectSession() {
         if (mSession == null) {
             return;
@@ -313,10 +333,22 @@ public class MainActivity extends AppCompatActivity
         if (mSubscribers.size() > 0) {
             for (Subscriber subscriber : mSubscribers) {
                 if (subscriber != null) {
+                    int position = mSubscribers.indexOf(subscriber);
+                    int id = getResources().getIdentifier("subscriberview" + (new Integer(position)).toString(), "id", MainActivity.this.getPackageName());
+                    RelativeLayout subscriberViewContainer = (RelativeLayout) findViewById(id);
+                    subscriberViewContainer.removeView(subscriber.getView());
+
+                    id = getResources().getIdentifier("toggleAudioSubscriber" + (new Integer(position)).toString(), "id", MainActivity.this.getPackageName());
+                    final ToggleButton toggleAudio = (ToggleButton) findViewById(id);
+                    toggleAudio.setOnCheckedChangeListener(null);
+                    toggleAudio.setVisibility(View.INVISIBLE);
+
                     mSession.unsubscribe(subscriber);
                     subscriber.destroy();
                 }
             }
+            mSubscribers.clear();
+            mSubscriberStreams.clear();
         }
 
         if (mPublisher != null) {

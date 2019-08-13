@@ -122,7 +122,14 @@
                 android:layout_height="match_parent" >
 
                 <Button
-                    android:text="Swap Camera"
+                    android:text="Session"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:id="@+id/swapSession"
+                    android:layout_weight="1" />
+
+                <Button
+                    android:text="Camera"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:id="@+id/swapCamera"
